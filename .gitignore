@@ -1,0 +1,25 @@
+# Environment
+.env
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Uploads & Temporary Local Storage
+uploads/
+*.pdf
+tmp/
+scratch/
