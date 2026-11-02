@@ -1,7 +1,8 @@
 import os
 import uuid
 import logging
-from flask import Flask, request, jsonify, render_template
+from pathlib import Path
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
@@ -18,12 +19,20 @@ from services import (
     SupabaseService
 )
 
+# Base directory for resolving static and template paths
+BASE_DIR = Path(__file__).resolve().parent
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 def create_app(config_class=Config):
-    app = Flask(__name__)
+    app = Flask(
+        __name__,
+        template_folder=str(BASE_DIR / "templates"),
+        static_folder=str(BASE_DIR / "static"),
+        static_url_path="/static"
+    )
     app.config.from_object(config_class)
     CORS(app)
 
@@ -59,6 +68,8 @@ def create_app(config_class=Config):
     documents_store = {}
 
     @app.route("/")
+    @app.route("/api")
+    @app.route("/api/index")
     def index():
         return render_template(
             "index.html",
@@ -66,7 +77,12 @@ def create_app(config_class=Config):
             max_pages=config_class.MAX_PAGES
         )
 
+    @app.route("/static/<path:filename>")
+    def serve_static(filename):
+        return send_from_directory(str(BASE_DIR / "static"), filename)
+
     @app.route("/api/upload", methods=["POST"])
+    @app.route("/upload", methods=["POST"])
     def upload_pdf():
         if "file" not in request.files:
             return jsonify({"error": "No file uploaded"}), 400
@@ -100,12 +116,12 @@ def create_app(config_class=Config):
                     }), 400
                 return jsonify({"error": "Could not extract any readable text chunks from this document."}), 400
 
-            # 3. Generate embeddings with Sentence Transformers
+            # 3. Generate embeddings
             embedder = get_embedder()
             chunk_texts = [c["text"] for c in chunks]
             embeddings = embedder.embed_texts(chunk_texts)
 
-            # 4. Index in FAISS
+            # 4. Index in vector store
             retriever.index_document(doc_id, chunks, embeddings)
 
             # 5. Store document metadata
@@ -142,6 +158,7 @@ def create_app(config_class=Config):
             return jsonify({"error": f"Failed to process PDF: {str(e)}"}), 500
 
     @app.route("/api/query", methods=["POST"])
+    @app.route("/query", methods=["POST"])
     def query_document():
         data = request.get_json() or {}
         doc_id = data.get("doc_id")
@@ -156,11 +173,11 @@ def create_app(config_class=Config):
         doc_meta = documents_store[doc_id]
 
         try:
-            # 1. Embed query with Sentence Transformers
+            # 1. Embed query
             embedder = get_embedder()
             query_vector = embedder.embed_query(question)
 
-            # 2. Retrieve top-k relevant chunks from FAISS
+            # 2. Retrieve top-k relevant chunks
             retrieved_chunks = retriever.search(
                 query_vector,
                 doc_id=doc_id,
@@ -210,6 +227,7 @@ def create_app(config_class=Config):
             return jsonify({"error": f"Failed to answer question: {str(e)}"}), 500
 
     @app.route("/api/document/<doc_id>/chunks", methods=["GET"])
+    @app.route("/document/<doc_id>/chunks", methods=["GET"])
     def get_chunks(doc_id):
         if doc_id not in documents_store:
             return jsonify({"error": "Document not found"}), 404
@@ -222,6 +240,7 @@ def create_app(config_class=Config):
         })
 
     @app.route("/api/document/<doc_id>", methods=["DELETE"])
+    @app.route("/document/<doc_id>", methods=["DELETE"])
     def delete_document(doc_id):
         if doc_id in documents_store:
             del documents_store[doc_id]
@@ -230,6 +249,7 @@ def create_app(config_class=Config):
         return jsonify({"success": True, "message": "Document deleted and index cleared."})
 
     @app.route("/api/health", methods=["GET"])
+    @app.route("/health", methods=["GET"])
     def health():
         return jsonify({
             "status": "healthy",
