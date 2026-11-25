@@ -67,11 +67,23 @@ def create_app(config_class=Config):
     # In-memory document storage for session
     documents_store = {}
 
-    @app.route("/")
-    @app.route("/api")
-    @app.route("/api/index")
-    @app.route("/api/index.py")
+    @app.route("/", methods=["GET", "POST", "OPTIONS"], strict_slashes=False)
+    @app.route("/api", methods=["GET", "POST", "OPTIONS"], strict_slashes=False)
+    @app.route("/api/index", methods=["GET", "POST", "OPTIONS"], strict_slashes=False)
+    @app.route("/api/index.py", methods=["GET", "POST", "OPTIONS"], strict_slashes=False)
     def index():
+        if request.method == "OPTIONS":
+            return jsonify({"status": "ok"}), 200
+
+        if request.method == "POST":
+            # Fallback dispatch if Vercel serverless layer forwarded POST directly to root entrypoint
+            if "file" in request.files:
+                return upload_pdf()
+            data = request.get_json(silent=True) or {}
+            if "question" in data:
+                return query_document()
+            return jsonify({"error": "Method not allowed. Expected 'file' or 'question' in POST payload."}), 400
+
         return render_template(
             "index.html",
             model_name=config_class.PRIMARY_MODEL,
@@ -82,9 +94,11 @@ def create_app(config_class=Config):
     def serve_static(filename):
         return send_from_directory(str(BASE_DIR / "static"), filename)
 
-    @app.route("/api/upload", methods=["POST"])
-    @app.route("/upload", methods=["POST"])
+    @app.route("/api/upload", methods=["POST", "OPTIONS"], strict_slashes=False)
+    @app.route("/upload", methods=["POST", "OPTIONS"], strict_slashes=False)
     def upload_pdf():
+        if request.method == "OPTIONS":
+            return jsonify({"status": "ok"}), 200
         if "file" not in request.files:
             return jsonify({"error": "No file uploaded"}), 400
 
@@ -159,9 +173,11 @@ def create_app(config_class=Config):
             logger.error(f"Error processing upload: {e}", exc_info=True)
             return jsonify({"error": f"Failed to process PDF: {str(e)}"}), 500
 
-    @app.route("/api/query", methods=["POST"])
-    @app.route("/query", methods=["POST"])
+    @app.route("/api/query", methods=["POST", "OPTIONS"], strict_slashes=False)
+    @app.route("/query", methods=["POST", "OPTIONS"], strict_slashes=False)
     def query_document():
+        if request.method == "OPTIONS":
+            return jsonify({"status": "ok"}), 200
         data = request.get_json() or {}
         doc_id = data.get("doc_id")
         question = data.get("question", "").strip()
@@ -234,9 +250,11 @@ def create_app(config_class=Config):
             logger.error(f"Error during query: {e}", exc_info=True)
             return jsonify({"error": f"Failed to answer question: {str(e)}"}), 500
 
-    @app.route("/api/document/<doc_id>/chunks", methods=["GET"])
-    @app.route("/document/<doc_id>/chunks", methods=["GET"])
+    @app.route("/api/document/<doc_id>/chunks", methods=["GET", "OPTIONS"], strict_slashes=False)
+    @app.route("/document/<doc_id>/chunks", methods=["GET", "OPTIONS"], strict_slashes=False)
     def get_chunks(doc_id):
+        if request.method == "OPTIONS":
+            return jsonify({"status": "ok"}), 200
         if doc_id not in documents_store:
             return jsonify({"error": "Document not found"}), 404
 
@@ -247,18 +265,22 @@ def create_app(config_class=Config):
             "chunks": chunks
         })
 
-    @app.route("/api/document/<doc_id>", methods=["DELETE"])
-    @app.route("/document/<doc_id>", methods=["DELETE"])
+    @app.route("/api/document/<doc_id>", methods=["DELETE", "OPTIONS"], strict_slashes=False)
+    @app.route("/document/<doc_id>", methods=["DELETE", "OPTIONS"], strict_slashes=False)
     def delete_document(doc_id):
+        if request.method == "OPTIONS":
+            return jsonify({"status": "ok"}), 200
         if doc_id in documents_store:
             del documents_store[doc_id]
         retriever.remove_document(doc_id)
         supabase_service.delete_document(doc_id)
         return jsonify({"success": True, "message": "Document deleted and index cleared."})
 
-    @app.route("/api/health", methods=["GET"])
-    @app.route("/health", methods=["GET"])
+    @app.route("/api/health", methods=["GET", "POST", "OPTIONS"], strict_slashes=False)
+    @app.route("/health", methods=["GET", "POST", "OPTIONS"], strict_slashes=False)
     def health():
+        if request.method == "OPTIONS":
+            return jsonify({"status": "ok"}), 200
         return jsonify({
             "status": "healthy",
             "primary_model": config_class.PRIMARY_MODEL,
