@@ -134,7 +134,8 @@ def create_app(config_class=Config):
                 "total_characters": doc_data["total_characters"],
                 "is_scanned": doc_data["is_scanned"],
                 "preview": doc_data["preview"],
-                "chunks": chunks
+                "chunks": chunks,
+                "embedding_mode": getattr(embedder, "last_mode_used", "gemini")
             }
             documents_store[doc_id] = doc_meta
             supabase_service.save_document_meta(doc_id, doc_meta)
@@ -174,9 +175,9 @@ def create_app(config_class=Config):
         doc_meta = documents_store[doc_id]
 
         try:
-            # 1. Embed query
+            # 1. Embed query matching document indexing mode
             embedder = get_embedder()
-            query_vector = embedder.embed_query(question)
+            query_vector = embedder.embed_query(question, mode=doc_meta.get("embedding_mode"))
 
             # 2. Retrieve top-k relevant chunks
             retrieved_chunks = retriever.search(

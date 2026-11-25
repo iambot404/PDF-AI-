@@ -163,7 +163,21 @@ async function handleFileUpload(file) {
             body: formData
         });
 
-        const data = await response.json();
+        let data = null;
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+            try {
+                data = await response.json();
+            } catch (e) {
+                data = null;
+            }
+        }
+
+        if (!data) {
+            const rawText = await response.text();
+            const cleanMsg = rawText.replace(/<[^>]*>?/gm, '').trim();
+            throw new Error(`Server returned HTTP ${response.status}: ${cleanMsg.slice(0, 160) || response.statusText}`);
+        }
 
         if (!response.ok) {
             throw new Error(data.error || "Failed to upload and process PDF.");
@@ -262,7 +276,21 @@ async function submitQuestion() {
             })
         });
 
-        const data = await response.json();
+        let data = null;
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+            try {
+                data = await response.json();
+            } catch (e) {
+                data = null;
+            }
+        }
+
+        if (!data) {
+            const rawText = await response.text();
+            const cleanMsg = rawText.replace(/<[^>]*>?/gm, '').trim();
+            throw new Error(`Server returned HTTP ${response.status}: ${cleanMsg.slice(0, 160) || response.statusText}`);
+        }
 
         if (!response.ok) {
             throw new Error(data.error || "Error generating grounded answer.");

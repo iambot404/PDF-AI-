@@ -31,7 +31,7 @@ class Config:
     ]
     
     # Chunking configuration
-    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 500))  # in characters/words
+    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 700))  # in characters/words
     CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", 100))
     
     # Retrieval configuration
