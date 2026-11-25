@@ -179,13 +179,18 @@ def create_app(config_class=Config):
             embedder = get_embedder()
             query_vector = embedder.embed_query(question, mode=doc_meta.get("embedding_mode"))
 
-            # 2. Retrieve top-k relevant chunks
+            # 2. Retrieve top-k relevant chunks using Hybrid Search (BM25 + Dense Vectors)
             retrieved_chunks = retriever.search(
                 query_vector,
                 doc_id=doc_id,
                 top_k=config_class.TOP_K_CHUNKS,
-                score_threshold=0.0
+                score_threshold=0.0,
+                query_text=question
             )
+            emb_mode = doc_meta.get("embedding_mode", "bm25")
+            retrieval_method = "Hybrid (Gemini 3072D Vector + BM25)" if emb_mode == "gemini" else "High-Precision BM25 Lexical Ranking"
+            chunk_summary = [f"P{c.get('page_number')} (sc={c.get('score')})" for c in retrieved_chunks]
+            logger.info(f"Query '{question}' via {retrieval_method} -> Retrieved {len(retrieved_chunks)} chunks: {chunk_summary}")
 
             # 3. Call Gemini with context grounding & retry
             gemini = get_gemini()
@@ -218,6 +223,7 @@ def create_app(config_class=Config):
                 "citations": answer_payload["citations"],
                 "fact_check": fact_check_result,
                 "model_used": answer_payload["model_used"],
+                "retrieval_method": retrieval_method,
                 "cached": answer_payload["cached"],
                 "latency_ms": answer_payload["latency_ms"]
             })

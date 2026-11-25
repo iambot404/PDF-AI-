@@ -409,8 +409,9 @@ function updateAiMessage(msgId, data) {
             </div>
 
             <div class="ai-meta-footer">
-                <span>Model: ${escapeHtml(data.model_used || "Gemini")} ${data.cached ? "(Cached)" : ""}</span>
-                <span>Latency: ${data.latency_ms || 0}ms</span>
+                <span>🤖 Model: <b>${escapeHtml(data.model_used || "Gemini AI")}</b> ${data.cached ? "(Cached)" : ""}</span>
+                <span>⚡ Retrieval: <b>${escapeHtml(data.retrieval_method || "Hybrid BM25+Vector")}</b></span>
+                <span>⏱️ ${data.latency_ms || 0}ms</span>
             </div>
         </div>
     `;

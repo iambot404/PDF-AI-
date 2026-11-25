@@ -108,7 +108,7 @@ class GeminiService:
             "STRICT FACT-CHECKING RULES:\n"
             "1. Ground every statement directly in the provided passages.\n"
             "2. Whenever you state a fact, cite the specific page number in brackets, e.g. [Page 4].\n"
-            "3. If the answer cannot be determined or is missing from the excerpts, state clearly: "
+            "3. If the excerpts provide partial or direct evidence, answer as thoroughly and helpfully as possible using that evidence. Only if the provided excerpts contain absolutely no relevant information to answer the question, state: "
             "'Based on the provided document excerpts, there is insufficient information to answer this question.'\n"
             "4. NEVER invent facts, extrapolate unsupported details, or hallucinate citations.\n"
             "5. Keep the answer clear, structured, and factual."

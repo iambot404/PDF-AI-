@@ -83,10 +83,10 @@ class EmbeddingService:
             self.last_mode_used = "gemini"
             return res
         except Exception as e:
-            logger.warning(f"Gemini embedding API failed ({e}). Automatically activating pure-NumPy Vectorizer fallback.")
+            logger.warning(f"Gemini embedding API failed ({e}). Automatically activating high-precision BM25 fallback.")
             res = hash_embed_texts(texts, dim=768)
             self._dim = 768
-            self.last_mode_used = "numpy_vectorizer"
+            self.last_mode_used = "bm25"
             return res
 
     def embed_query(self, query: str, mode: Optional[str] = None) -> np.ndarray:
@@ -98,7 +98,7 @@ class EmbeddingService:
 
         active_mode = mode or self.last_mode_used
 
-        if active_mode == "numpy_vectorizer":
+        if active_mode in ("bm25", "numpy_vectorizer"):
             return hash_embed_texts([query.strip()], dim=768)
 
         if active_mode == "sentence_transformers":
@@ -110,7 +110,7 @@ class EmbeddingService:
         try:
             return self._embed_via_gemini_with_retries([query.strip()])
         except Exception as e:
-            logger.warning(f"Gemini query embedding failed: {e}. Using pure-NumPy vectorizer fallback.")
+            logger.warning(f"Gemini query embedding failed: {e}. Using high-precision BM25 fallback.")
             return hash_embed_texts([query.strip()], dim=768)
 
     def _embed_via_gemini_with_retries(self, texts: List[str], max_retries: int = 3) -> np.ndarray:
@@ -121,8 +121,8 @@ class EmbeddingService:
             raise ValueError("GEMINI_API_KEY is required to generate embeddings.")
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model}:batchEmbedContents?key={self.api_key}"
-        # Batch up to 60 chunks per call to minimize HTTP requests
-        batch_size = 60
+        # Batch 25 chunks per call to stay within API payload limits
+        batch_size = 25
         all_vectors = []
 
         for i in range(0, len(texts), batch_size):
@@ -161,8 +161,10 @@ class EmbeddingService:
                     err_msg = he.read().decode("utf-8", errors="ignore")
                     last_err = he
 
-                    # 429 Too Many Requests or 503 Server Overload
-                    if status in (429, 503, 504) and attempt < max_retries:
+                    # 429 Too Many Requests (immediate fallback) vs 503/504 transient overload
+                    if status == 429:
+                        raise RuntimeError(f"Gemini Embeddings API rate limit reached (HTTP 429). Fast-switching to BM25.")
+                    elif status in (503, 504) and attempt < max_retries:
                         jitter = random.uniform(0.5, 1.5)
                         sleep_time = (1.5 * (2 ** (attempt - 1))) + jitter
                         logger.warning(f"Gemini Embeddings HTTP {status} on batch {i}. Retrying in {sleep_time:.2f}s...")

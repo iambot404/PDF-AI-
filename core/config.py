@@ -31,11 +31,11 @@ class Config:
     ]
     
     # Chunking configuration
-    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 700))  # in characters/words
-    CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", 100))
+    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 1200))  # in characters
+    CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", 150))
     
     # Retrieval configuration
-    TOP_K_CHUNKS = int(os.getenv("TOP_K_CHUNKS", 4))
+    TOP_K_CHUNKS = int(os.getenv("TOP_K_CHUNKS", 6))
     EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")
     
     # Rate Limiting & Reliability
