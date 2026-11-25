@@ -70,6 +70,7 @@ def create_app(config_class=Config):
     @app.route("/")
     @app.route("/api")
     @app.route("/api/index")
+    @app.route("/api/index.py")
     def index():
         return render_template(
             "index.html",
